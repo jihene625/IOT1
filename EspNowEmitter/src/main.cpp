@@ -72,8 +72,8 @@ void loop() {
   myData.id = 2;
   myData.x = dht.readHumidity();
   myData.y = dht.readTemperature();
-  Serial.println(myData.x);
-  Serial.println(myData.y);
+  Serial.println(String("Humidity :") + myData.x);
+  Serial.println(String("Temperature :") + myData.y);
   // Send message via ESP-NOW
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &myData, sizeof(myData));
    
