@@ -13,7 +13,7 @@
 using namespace std;
 
 // TODO : update if you have more than one mote (sink does not count)
-#define MOTE_COUNT 1
+#define MOTE_COUNT 2
 
 // Put here your network credentials (Wifi Access Point)
 const char *ssid = "iot";
@@ -33,7 +33,8 @@ int value = 0;
 // If there are more than one mote, use the following syntax (example with MOTE_COUNT=2) :
 // uint8_t moteAddress[MOTE_COUNT][6] = {{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF},
 //                              {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}};
-uint8_t moteAddress[MOTE_COUNT][6] = {0xEC, 0x62, 0x60, 0x10, 0xA7, 0x84};
+uint8_t moteAddress[MOTE_COUNT][6] = {{0xEC, 0x62, 0x60, 0x10, 0xA7, 0x84},
+                                      {0x24, 0xDC, 0xC3, 0x14, 0x3D, 0xB4}}; 
 esp_now_peer_info_t peerInfo[MOTE_COUNT];
 
 // ================================================================================================

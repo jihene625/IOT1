@@ -5,21 +5,24 @@
   The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
    - adapted by A.Combes ISIS 26.1.2025, also inspired by https://wolles-elektronikkiste.de/en/esp-now
 *********/
+
+
+
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 #include <esp_now.h>
 #include <esp_wifi.h>
 #include <WiFi.h>
-#include "DHT.h"
 #include <MFRC522v2.h>
 #include <MFRC522DriverSPI.h>
 #include <MFRC522DriverPinSimple.h>
 
 
-#define BOARD_ID 0
-
-
-#define DHTPIN 23
-#define DHTTYPE DHT22
-DHT dht(DHTPIN, DHTTYPE);
+#define BOARD_ID 1
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+#define OLED_RESET    -1
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 MFRC522DriverPinSimple ss_pin(5);   // Broche SDA/SS connectée sur la broche 5
 MFRC522DriverSPI driver{ss_pin};      // Création du driver SPI
@@ -102,11 +105,13 @@ float floatMap(float x, float in_min, float in_max, float out_min, float out_max
 String readRFIDCard() {
   // Vérifie la présence d'une nouvelle carte
   if (!mfrc522.PICC_IsNewCardPresent()) {
+    Serial.println("carte absente");
     return ""; // Aucune carte détectée
   }
   
   // Sélectionne la carte détectée
   if (!mfrc522.PICC_ReadCardSerial()) {
+    Serial.println("carte echec");
     return ""; // La lecture a échoué
   }
   
@@ -123,8 +128,14 @@ String readRFIDCard() {
   // Arrête la communication avec la carte pour autoriser une nouvelle lecture
   mfrc522.PICC_HaltA();
   
-  delay(2000); // Pause de 2 secondes avant la prochaine lecture
   return uidString;
+}
+
+void afficherMessage(const char* message) {
+  display.clearDisplay();
+  display.setCursor(10, 25);
+  display.print(message);
+  display.display();
 }
 
 // ================================================================================================
@@ -166,17 +177,20 @@ void espNowOnDataRecv(const uint8_t *mac_addr, const uint8_t *incomingData, int 
     return;
   }
 
+  bool estOccupe = false; // Variable pour suivre l'état
 
-  if (espNow_incomingMessage.bool0 == 1)
-  {
-    Serial.println("Board0 led on");
-    digitalWrite(ledPin, HIGH);
+  if (espNow_incomingMessage.bool0 == 1) {
+      estOccupe = !estOccupe; // Inverser l'état à chaque réception de 1
+  
+      if (estOccupe) {
+          Serial.println("Occupé");
+          afficherMessage("Occupé");
+      } else {
+          Serial.println("Libre");
+          afficherMessage("Libre");
+      }
   }
-  else if (espNow_incomingMessage.bool0 == 0)
-  {
-    Serial.println("Board0 led off");
-    digitalWrite(ledPin, LOW);
-  }
+    
 }
 
 
@@ -210,9 +224,9 @@ int32_t getWiFiChannel(const char *ssid)
 void setup()
 {
   // Init Serial Monitor
-  dht.begin();
-  Serial.begin(115200);               // Initialisation de la communication série
-  while (!Serial);                    // Attente de l'ouverture du port série
+  Serial.begin(115200);  
+  Wire.begin(13,2);             
+  while (!Serial);                 
   
   mfrc522.PCD_Init();                 // Initialisation du lecteur MFRC522
   Serial.println(F("Placez votre badge RFID sur le lecteur pour récupérer l'UID..."));
@@ -220,6 +234,16 @@ void setup()
   // TODO : Here perform setup of hardware which is connected to sink (RFID, dht, LEDs, etc.), if needed
   pinMode(ledPin, OUTPUT);
   pinMode(btnPin, INPUT);
+
+  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { 
+    Serial.println(F("Échec de l'initialisation de l'écran"));
+    for (;;);
+  }
+  
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setTextColor(WHITE);
+
 
 
   //-----------------------------------------------------------
@@ -274,44 +298,39 @@ void setup()
 // only an example (simulation of temperature and humidity)
 void loop()
 {
-  unsigned long currentMillis = millis();
-  if (currentMillis - previousMillis >= interval)
-  {
-#if BOARD_ID == 0 || BOARD_ID == 1
-    // Save the last time a new reading was published
-    previousMillis = currentMillis;
-    espNow_moteData = {};
-
-
-    // Set values to send
-    espNow_moteData.boardId = BOARD_ID;
-    espNow_moteData.readingId = readingId++;
-    espNow_moteData.timeTag = currentMillis;
-    espNow_moteData.readingId = readingId++;
-    String uid = readRFIDCard();  // Récupère l'UID sous forme de String
-    uid.toCharArray(espNow_moteData.text, sizeof(espNow_moteData.text));
-    
-
-    
-
-
-    // Send message via ESP-NOW
-    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&espNow_moteData, sizeof(espNow_moteData));
-
-
-    Serial.println("Badge");
-    Serial.println(espNow_moteData.text);
-
-
-    if (result == ESP_OK)
+    unsigned long currentMillis = millis();
+    if (currentMillis - previousMillis >= interval)
     {
-      Serial.println("Sent with success");
+        // Sauvegarde du dernier temps d'envoi de données
+        previousMillis = currentMillis;
+        espNow_moteData = {};
+
+        // Définition des valeurs à envoyer
+        espNow_moteData.boardId = BOARD_ID;
+        espNow_moteData.readingId = readingId++;
+        espNow_moteData.timeTag = currentMillis;
+        
+        // Récupération de l'UID du badge RFID
+        String uid = readRFIDCard();  
+        uid.toCharArray(espNow_moteData.text, sizeof(espNow_moteData.text));
+
+        // Envoi du message via ESP-NOW
+        esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&espNow_moteData, sizeof(espNow_moteData));
+
+        Serial.println("Badge détecté :");
+        Serial.println(espNow_moteData.text);
+        Serial.println(espNow_incomingMessage.bool1);
+      
+
+        if (result == ESP_OK)
+        {
+            Serial.println("Envoi réussi");
+        }
+        else
+        {
+            Serial.println("Erreur lors de l'envoi des données");
+        }
     }
-    else
-    {
-      Serial.println("Error sending the data");
-    }
-#endif
-  }
+
 }
 
