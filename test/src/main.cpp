@@ -7,7 +7,7 @@
 #include <WiFi.h>
 
 // Définition
-#define BOARD_ID 2
+#define BOARD_ID 3
 #define FREQUENCY_HZ 60
 #define INTERVAL_MS (1000 / (FREQUENCY_HZ + 1))
 
