@@ -43,6 +43,7 @@ const int btnPin = 25;
 const int potPin = 36; //potentiomètre
 float temperature = 0;
 float humidity = 0;
+bool estOccupe = true; // Variable pour suivre l'état
 
 
 // MAC Address of the sink
@@ -177,16 +178,14 @@ void espNowOnDataRecv(const uint8_t *mac_addr, const uint8_t *incomingData, int 
     return;
   }
 
-  bool estOccupe = false; // Variable pour suivre l'état
 
   if (espNow_incomingMessage.bool0 == 1) {
       estOccupe = !estOccupe; // Inverser l'état à chaque réception de 1
-  
       if (estOccupe) {
-          Serial.println("Occupé");
-          afficherMessage("Occupé");
+          Serial.println("Occupée!");
+          afficherMessage("Occupee");
       } else {
-          Serial.println("Libre");
+          Serial.println("Libre!!");
           afficherMessage("Libre");
       }
   }
